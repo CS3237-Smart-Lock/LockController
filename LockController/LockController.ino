@@ -19,6 +19,11 @@ int servoPin = 7;
 #else
 int servoPin = 18;
 #endif
+#define SWITCH 4
+
+byte locked = LOW;
+int count = 0;
+int state = LOW;
 
 // Your Wi-Fi credentials
 const char* ssid = "";
@@ -45,15 +50,6 @@ void turnServo(int pos){
   myservo.write(pos);      // tell servo to go to position in variable 'pos'
   delay(15);             // waits 15ms for the servo to reach the position
 }
-
-#define SWITCH 4
-byte locked = LOW;
-int count = 0;
-
-Servo myservo;
-
-int pos = 0;
-int servoPin = 18;
 
 int lockDoor() {
   Serial.println("Locking the door...");
@@ -138,10 +134,10 @@ void loop() {
 
   if (digitalRead(SWITCH) == LOW) {
     state = LOW;
-    lockDoor() 
+    lockDoor();
   }
   if (state) {
     Serial.println("Unlock");
-    unlockDoor() 
+    unlockDoor();
   }
 }
