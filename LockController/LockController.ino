@@ -4,6 +4,8 @@
 #include <ESPmDNS.h>
 
 #include <ESP32Servo.h>
+#define LOCKED 1
+#define UNLOCKED 0
 
 Servo myservo;  // create servo object to control a servo
 // 16 servo objects can be created on the ESP32
@@ -21,13 +23,12 @@ int servoPin = 18;
 #endif
 #define SWITCH 4
 
-byte locked = LOW;
 int count = 0;
-int state = LOW;
+byte state = LOCKED;
 
 // Your Wi-Fi credentials
-const char* ssid = "";
-const char* password = "";
+const char* ssid = "sam_zhang";
+const char* password = "aaabbb1234";
 
 WebServer server(80);
 
@@ -48,19 +49,20 @@ void handleNotFound() {
 
 void turnServo(int pos){
   myservo.write(pos);      // tell servo to go to position in variable 'pos'
-  delay(15);             // waits 15ms for the servo to reach the position
+  delay(15);               // waits 15ms for the servo to reach the position
 }
 
 int lockDoor() {
   Serial.println("Locking the door...");
   turnServo(180);
+  state = LOCKED;
   return 0; 
 }
 
 int unlockDoor() {
   Serial.println("Unlocking the door...");
-  state = HIGH;
   turnServo(0);
+  state = UNLOCKED;
   return 0; 
 }
 
@@ -94,6 +96,10 @@ void connectToWifi() {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
+  Serial.print("Signal strength (RSSI): ");
+  Serial.print(WiFi.RSSI());
+  Serial.println(" dBm");
+
   if (MDNS.begin("esp32")) {
     Serial.println("MDNS responder started");
   }
@@ -101,6 +107,10 @@ void connectToWifi() {
 
 void startServer(){
   server.onNotFound(handleNotFound);
+
+  server.on("/", HTTP_GET, [](){
+    server.send(200, "text/plain", "Hello World!");
+  });
 
   server.on("/lock", HTTP_GET, [](){
     Serial.println("Lock request received");
@@ -120,9 +130,12 @@ void startServer(){
 
 void setup() {
   Serial.begin(115200);
+  delay(1000);
 
   setupServo();
+  delay(1000);
   connectToWifi();
+  delay(1000);
   startServer();
 
   pinMode(SWITCH, INPUT_PULLUP);
@@ -130,14 +143,10 @@ void setup() {
 
 void loop() {
   server.handleClient();
-  delay(2);  
+  delay(2);
 
   if (digitalRead(SWITCH) == LOW) {
-    state = LOW;
+    Serial.println("Lock");
     lockDoor();
-  }
-  if (state) {
-    Serial.println("Unlock");
-    unlockDoor();
   }
 }
