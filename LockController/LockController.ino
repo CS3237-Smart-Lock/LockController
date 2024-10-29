@@ -21,16 +21,32 @@ int servoPin = 7;
 #else
 int servoPin = 18;
 #endif
-#define SWITCH 4
+
+#define OUTSIDE_PIN 13
+#define INSIDE_PIN 14
+#define LED_LOCK 5
+#define LED_UNLOCK 23
 
 int count = 0;
 byte state = LOCKED;
+volatile bool pressed_outside = false;
+volatile bool pressed_inside = false;
 
 // Your Wi-Fi credentials
-const char* ssid = "sam_zhang";
-const char* password = "aaabbb1234";
+const char* ssid = "iPhone von Luis";
+const char* password = "12345678";
 
 WebServer server(80);
+
+void IRAM_ATTR isr_out() {
+  pressed_outside = true;
+  
+}
+
+void IRAM_ATTR isr_in() {
+  pressed_inside = true;
+  
+}
 
 void handleNotFound() {
   String message = "File Not Found\n\n";
@@ -56,6 +72,10 @@ int lockDoor() {
   Serial.println("Locking the door...");
   turnServo(180);
   state = LOCKED;
+  digitalWrite(LED_UNLOCK, LOW);
+  digitalWrite(LED_LOCK, HIGH);
+  pressed_outside = false;
+  pressed_inside = false;
   return 0; 
 }
 
@@ -63,6 +83,10 @@ int unlockDoor() {
   Serial.println("Unlocking the door...");
   turnServo(0);
   state = UNLOCKED;
+  digitalWrite(LED_LOCK, LOW);
+  digitalWrite(LED_UNLOCK, HIGH);
+  pressed_outside = false;
+  pressed_inside = false;
   return 0; 
 }
 
@@ -138,15 +162,37 @@ void setup() {
   delay(1000);
   startServer();
 
-  pinMode(SWITCH, INPUT_PULLUP);
+
+  //setup the LEDS
+  pinMode(LED_LOCK, OUTPUT);
+  pinMode(LED_UNLOCK, OUTPUT);
+
+  //set up the outside pin
+  pinMode(OUTSIDE_PIN, INPUT_PULLUP);
+  attachInterrupt(OUTSIDE_PIN, isr_out, FALLING);
+
+  //set up the inside pin
+  pinMode(INSIDE_PIN, INPUT_PULLUP);
+  attachInterrupt(INSIDE_PIN, isr_in, FALLING);
+
+
+  digitalWrite(LED_UNLOCK, LOW);
+  digitalWrite(LED_LOCK, HIGH);
 }
 
 void loop() {
   server.handleClient();
   delay(2);
 
-  if (digitalRead(SWITCH) == LOW) {
-    Serial.println("Lock");
+  if(pressed_outside) {
+    delay(150);
     lockDoor();
+  } else if(pressed_inside) {
+    delay(150);
+    if(state==LOCKED) {
+      unlockDoor();
+    } else {
+      lockDoor();
+    }
   }
 }
