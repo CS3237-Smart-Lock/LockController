@@ -2,6 +2,9 @@
 #include <WiFiClient.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
+#include <Wire.h>
+#include <hd44780.h>
+#include <hd44780ioClass/hd44780_I2Cexp.h>
 
 #include <ESP32Servo.h>
 #define LOCKED 1
@@ -24,8 +27,8 @@ int servoPin = 18;
 
 #define OUTSIDE_PIN 13
 #define INSIDE_PIN 14
-#define LED_LOCK 5
-#define LED_UNLOCK 23
+//#define LED_LOCK 5
+//#define LED_UNLOCK 23
 
 int count = 0;
 byte state = LOCKED;
@@ -37,6 +40,24 @@ const char* ssid = "iPhone von Luis";
 const char* password = "12345678";
 
 WebServer server(80);
+
+hd44780_I2Cexp lcd;  // Declare lcd object: auto-locates address
+
+void setup_lcd() {
+  
+  int status = lcd.begin(16, 2);  // Adjust to 20,4 if using a 20x4 display
+  delay(500);
+  if (status) {                   // Check if initialization was successful
+    Serial.println("LCD initialization failed");
+    return;
+  }
+  lcd.backlight();
+  
+  lcd.setCursor(0, 0);
+  lcd.cursor();    // Display the cursor
+  lcd.blink();     // Set cursor to blink
+  lcd.print("Hello, ESP32!");
+}
 
 void IRAM_ATTR isr_out() {
   pressed_outside = true;
@@ -72,8 +93,11 @@ int lockDoor() {
   Serial.println("Locking the door...");
   turnServo(180);
   state = LOCKED;
-  digitalWrite(LED_UNLOCK, LOW);
-  digitalWrite(LED_LOCK, HIGH);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("LOCKED...");
+  //digitalWrite(LED_UNLOCK, LOW);
+  //digitalWrite(LED_LOCK, HIGH);
   pressed_outside = false;
   pressed_inside = false;
   return 0; 
@@ -83,8 +107,11 @@ int unlockDoor() {
   Serial.println("Unlocking the door...");
   turnServo(0);
   state = UNLOCKED;
-  digitalWrite(LED_LOCK, LOW);
-  digitalWrite(LED_UNLOCK, HIGH);
+  //digitalWrite(LED_LOCK, LOW);
+  //digitalWrite(LED_UNLOCK, HIGH);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("UNLOCKED!!!");
   pressed_outside = false;
   pressed_inside = false;
   return 0; 
@@ -162,10 +189,12 @@ void setup() {
   delay(1000);
   startServer();
 
+  setup_lcd();
+
 
   //setup the LEDS
-  pinMode(LED_LOCK, OUTPUT);
-  pinMode(LED_UNLOCK, OUTPUT);
+  //pinMode(LED_LOCK, OUTPUT);
+  //pinMode(LED_UNLOCK, OUTPUT);
 
   //set up the outside pin
   pinMode(OUTSIDE_PIN, INPUT_PULLUP);
@@ -176,8 +205,8 @@ void setup() {
   attachInterrupt(INSIDE_PIN, isr_in, FALLING);
 
 
-  digitalWrite(LED_UNLOCK, LOW);
-  digitalWrite(LED_LOCK, HIGH);
+  //digitalWrite(LED_UNLOCK, LOW);
+  //digitalWrite(LED_LOCK, HIGH);
 }
 
 void loop() {
@@ -185,10 +214,10 @@ void loop() {
   delay(2);
 
   if(pressed_outside) {
-    delay(150);
+    delay(250);
     lockDoor();
   } else if(pressed_inside) {
-    delay(150);
+    delay(250);
     if(state==LOCKED) {
       unlockDoor();
     } else {
