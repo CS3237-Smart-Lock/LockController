@@ -2,6 +2,9 @@
 #include <WiFiClient.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
+#include <Wire.h>
+#include <hd44780.h>
+#include <hd44780ioClass/hd44780_I2Cexp.h>
 
 #include <ESP32Servo.h>
 #define LOCKED 1
@@ -21,16 +24,50 @@ int servoPin = 7;
 #else
 int servoPin = 18;
 #endif
-#define SWITCH 4
+
+#define OUTSIDE_PIN 13
+#define INSIDE_PIN 14
+//#define LED_LOCK 5
+//#define LED_UNLOCK 23
 
 int count = 0;
 byte state = LOCKED;
+volatile bool pressed_outside = false;
+volatile bool pressed_inside = false;
 
 // Your Wi-Fi credentials
-const char* ssid = "sam_zhang";
-const char* password = "aaabbb1234";
+const char* ssid = "iPhone von Luis";
+const char* password = "12345678";
 
 WebServer server(80);
+
+hd44780_I2Cexp lcd;  // Declare lcd object: auto-locates address
+
+void setup_lcd() {
+  
+  int status = lcd.begin(16, 2);  // Adjust to 20,4 if using a 20x4 display
+  delay(500);
+  if (status) {                   // Check if initialization was successful
+    Serial.println("LCD initialization failed");
+    return;
+  }
+  lcd.backlight();
+  
+  lcd.setCursor(0, 0);
+  lcd.cursor();    // Display the cursor
+  lcd.blink();     // Set cursor to blink
+  lcd.print("Hello, ESP32!");
+}
+
+void IRAM_ATTR isr_out() {
+  pressed_outside = true;
+  
+}
+
+void IRAM_ATTR isr_in() {
+  pressed_inside = true;
+  
+}
 
 void handleNotFound() {
   String message = "File Not Found\n\n";
@@ -56,6 +93,13 @@ int lockDoor() {
   Serial.println("Locking the door...");
   turnServo(180);
   state = LOCKED;
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("LOCKED...");
+  //digitalWrite(LED_UNLOCK, LOW);
+  //digitalWrite(LED_LOCK, HIGH);
+  pressed_outside = false;
+  pressed_inside = false;
   return 0; 
 }
 
@@ -63,6 +107,13 @@ int unlockDoor() {
   Serial.println("Unlocking the door...");
   turnServo(0);
   state = UNLOCKED;
+  //digitalWrite(LED_LOCK, LOW);
+  //digitalWrite(LED_UNLOCK, HIGH);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("UNLOCKED!!!");
+  pressed_outside = false;
+  pressed_inside = false;
   return 0; 
 }
 
@@ -146,15 +197,39 @@ void setup() {
   delay(1000);
   startServer();
 
-  pinMode(SWITCH, INPUT_PULLUP);
+  setup_lcd();
+
+
+  //setup the LEDS
+  //pinMode(LED_LOCK, OUTPUT);
+  //pinMode(LED_UNLOCK, OUTPUT);
+
+  //set up the outside pin
+  pinMode(OUTSIDE_PIN, INPUT_PULLUP);
+  attachInterrupt(OUTSIDE_PIN, isr_out, FALLING);
+
+  //set up the inside pin
+  pinMode(INSIDE_PIN, INPUT_PULLUP);
+  attachInterrupt(INSIDE_PIN, isr_in, FALLING);
+
+
+  //digitalWrite(LED_UNLOCK, LOW);
+  //digitalWrite(LED_LOCK, HIGH);
 }
 
 void loop() {
   server.handleClient();
   delay(2);
 
-  if (digitalRead(SWITCH) == LOW) {
-    Serial.println("Lock");
+  if(pressed_outside) {
+    delay(250);
     lockDoor();
+  } else if(pressed_inside) {
+    delay(250);
+    if(state==LOCKED) {
+      unlockDoor();
+    } else {
+      lockDoor();
+    }
   }
 }
