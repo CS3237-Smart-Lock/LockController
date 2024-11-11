@@ -79,30 +79,34 @@ void setupServo(){
 	// for an accurate 0 to 180 sweep
 }
 
-void connectToWifi() {
-  WiFi.mode(WIFI_STA);
+esp_err_t init_wifi(const char* hostname = "esp32", int maxRetries = 20) {
   WiFi.begin(ssid, password);
-  Serial.println("");
+  Serial.println("Starting WiFi");
 
-  // Wait for connection
+  int retryCount = 0;
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
+    retryCount++;
+
+    if (retryCount >= maxRetries) {
+      Serial.println("\nWiFi connection failed. Restarting ESP...");
+      return ESP_FAIL;
+    }
   }
 
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+  Serial.println("\nWiFi connected");
 
-  Serial.print("Signal strength (RSSI): ");
-  Serial.print(WiFi.RSSI());
-  Serial.println(" dBm");
-
-  if (MDNS.begin("esp32")) {
-    Serial.println("MDNS responder started");
+  // Start mDNS
+  if (!MDNS.begin(hostname)) {
+    Serial.println("Error starting mDNS");
+    return ESP_FAIL;
   }
+  Serial.print("mDNS responder started with hostname: ");
+  Serial.println(hostname);
+
+  return ESP_OK;
 }
 
 void startServer(){
@@ -134,7 +138,11 @@ void setup() {
 
   setupServo();
   delay(1000);
-  connectToWifi();
+
+  if (init_wifi("lockController") == ESP_FAIL){
+    ESP.restart();
+  };
+
   delay(1000);
   startServer();
 
