@@ -36,8 +36,8 @@ volatile bool pressed_outside = false;
 volatile bool pressed_inside = false;
 
 // Your Wi-Fi credentials
-const char* ssid = "iPhone von Luis";
-const char* password = "12345678";
+const char* ssid = "sam_zhang";
+const char* password = "aaabbb1234";
 
 WebServer server(80);
 
